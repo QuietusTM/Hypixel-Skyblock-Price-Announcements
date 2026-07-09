@@ -1,3 +1,7 @@
+## Personal Note:
+This was entirely vibe coded in like a day and a half with some help of the limited knowledge I do have, I am just fucking around with things to be totally honest if you like the idea and can improve on it absolutely feel free. I will work to improve it as I notice more issues come up once this is properly hosted I will see how things go. 
+
+
 # Discord Bazaar Alert Bot
 
 Discord bot that tracks Hypixel SkyBlock Bazaar prices and posts alerts to your configured server channel when tracked items drop below your threshold.
