@@ -1,0 +1,22 @@
+{
+  "name": "discord-bazaar-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for Hypixel Skyblock Bazaar price alerts",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node --no-deprecation index.js",
+    "test": "node --no-deprecation --test tests/*.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.4.1",
+    "discord.js": "^14.26.4",
+    "node-fetch": "2.7.0"
+  },
+  "overrides": {
+    "undici": "^6.27.0"
+  },
+  "allowScripts": {
+    "better-sqlite3": true
+  }
+}
