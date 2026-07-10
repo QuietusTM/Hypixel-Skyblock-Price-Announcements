@@ -11,7 +11,8 @@
   "dependencies": {
     "better-sqlite3": "^12.4.1",
     "discord.js": "^14.26.4",
-    "node-fetch": "2.7.0"
+    "node-fetch": "2.7.0",
+    "typescript": "^5.9.2"
   },
   "overrides": {
     "undici": "^6.27.0"

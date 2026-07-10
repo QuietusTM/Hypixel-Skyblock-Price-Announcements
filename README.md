@@ -132,7 +132,7 @@ This repository can also run on Havencloud with a direct node entrypoint instead
 
 Use these Havencloud environment values:
 
-- `MAIN_FILE=index.js`
+- `MAIN_FILE=heavencloud.mts`
 - `NODE_ARGS=--no-deprecation`
 - `DISCORD_TOKEN=your_bot_token`
 - `DISCORD_CLIENT_ID=your_application_id`
@@ -149,6 +149,6 @@ if [[ -d .git ]] && [[ 1 == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGE
 
 Notes:
 
-- Set `MAIN_FILE` to `index.js` so Havencloud uses the JavaScript entrypoint.
+- Set `MAIN_FILE` to `heavencloud.mts` because Havencloud's startup condition falls through to the `ts-node --esm` path for normal JavaScript entrypoints, and `.mts` gives `ts-node` an explicit ESM entry file.
 - Keep `NODE_ARGS=--no-deprecation` if you want the cleanest runtime logs.
 - Make sure `/home/container/follows.sqlite` is on persistent storage if your Havencloud setup separates ephemeral and persistent paths.

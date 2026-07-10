@@ -458,6 +458,10 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 if (require.main === module) {
+  startBot();
+}
+
+function startBot() {
   if (!TOKEN) {
     console.error('Missing DISCORD_TOKEN. Add it to .env or your environment and restart the bot.');
     process.exit(1);
@@ -479,4 +483,5 @@ module.exports = {
   resolveGuildId,
   getAnnouncementChannel,
   checkAndNotify,
+  startBot,
 };
