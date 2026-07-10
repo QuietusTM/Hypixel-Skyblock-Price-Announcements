@@ -20,7 +20,7 @@ process.noDeprecation = true;
 const fs = require('fs');
 const path = require('path');
 const fetch = require('node-fetch');
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField, REST, Routes, SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { normalizeItem, formatItemName, validateFollowInput } = require('./validation');
 const { FollowStore } = require('./database');
 const { getItemInfo } = require('./itemMatcher');
@@ -28,6 +28,7 @@ const { refreshBazaarCatalog, fetchBazaarDataWithRetry } = require('./catalog');
 const {
   registerReadyHandler,
   registerGuildJoinHandler,
+  hasModeratorPermissions,
   getAnnouncementChannelId,
   setAnnouncementChannelId,
 } = require('./botLifecycle');
@@ -214,7 +215,7 @@ async function registerSlashCommands() {
     new SlashCommandBuilder().setName('followlist').setDescription('List your Bazaar follow alerts').toJSON(),
     new SlashCommandBuilder().setName('searchitem').setDescription('Search the Bazaar catalog for an item').addStringOption((option) => option.setName('query').setDescription('Keyword to search for').setRequired(true)).toJSON(),
     new SlashCommandBuilder().setName('clearfollowlist').setDescription('Clear all of your Bazaar follows').toJSON(),
-    new SlashCommandBuilder().setName('setchannel').setDescription('Set the channel for Bazaar alert messages').addStringOption((option) => option.setName('channel').setDescription('Optional channel ID or mention for alert messages').setRequired(false)).toJSON(),
+    new SlashCommandBuilder().setName('setchannel').setDescription('Set the channel for Bazaar alert messages').setDefaultMemberPermissions(PermissionsBitField.Flags.ManageGuild).addStringOption((option) => option.setName('channel').setDescription('Optional channel ID or mention for alert messages').setRequired(false)).toJSON(),
     new SlashCommandBuilder().setName('unfollow').setDescription('Remove an item from your follow list').addStringOption((option) => option.setName('item').setDescription('Item to remove').setRequired(true)).toJSON(),
   ];
 
@@ -360,6 +361,11 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (commandName === 'setchannel') {
+      if (!hasModeratorPermissions(interaction.memberPermissions)) {
+        await replyEphemeral(interaction, 'You need moderator permissions to use this command.');
+        return;
+      }
+
       const channelInput = interaction.options.getString('channel');
       const inputId = channelInput?.replace(/<|#|>/g, '').trim();
       const channelId = inputId && /^\d+$/.test(inputId) ? inputId : (inputId ? null : interaction.channel?.id);

@@ -1,8 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { PermissionsBitField } = require('discord.js');
 const {
   registerReadyHandler,
   registerGuildJoinHandler,
+  hasModeratorPermissions,
   getAnnouncementChannelId,
   setAnnouncementChannelId,
 } = require('../botLifecycle');
@@ -56,6 +58,13 @@ test('guild join handler can autofill DISCORD_GUILD_ID when empty', async () => 
   });
 
   assert.equal(process.env.DISCORD_GUILD_ID, '1234567890');
+});
+
+test('hasModeratorPermissions accepts manage guild or administrator permissions', () => {
+  assert.equal(hasModeratorPermissions({ has: (permission) => permission === PermissionsBitField.Flags.ManageGuild }), true);
+  assert.equal(hasModeratorPermissions({ has: (permission) => permission === PermissionsBitField.Flags.Administrator }), true);
+  assert.equal(hasModeratorPermissions({ has: () => false }), false);
+  assert.equal(hasModeratorPermissions(null), false);
 });
 
 test('announcement channel id helpers read and write env state', () => {

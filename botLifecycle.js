@@ -1,3 +1,5 @@
+const { PermissionsBitField } = require('discord.js');
+
 function registerReadyHandler(client, onReady) {
   client.once('clientReady', async () => {
     await onReady();
@@ -8,6 +10,13 @@ function registerGuildJoinHandler(client, onGuildJoin) {
   client.on('guildCreate', async (guild) => {
     await onGuildJoin(guild);
   });
+}
+
+function hasModeratorPermissions(memberPermissions) {
+  return Boolean(
+    memberPermissions?.has?.(PermissionsBitField.Flags.ManageGuild)
+    || memberPermissions?.has?.(PermissionsBitField.Flags.Administrator)
+  );
 }
 
 function getAnnouncementChannelId() {
@@ -22,6 +31,7 @@ function setAnnouncementChannelId(channelId) {
 module.exports = {
   registerReadyHandler,
   registerGuildJoinHandler,
+  hasModeratorPermissions,
   getAnnouncementChannelId,
   setAnnouncementChannelId,
 };
