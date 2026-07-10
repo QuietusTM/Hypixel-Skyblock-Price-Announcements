@@ -59,7 +59,7 @@ This project is compatible with Havencloud's direct startup command flow.
 
 Set these environment variables in Havencloud:
 
-- `MAIN_FILE=heavencloud.mts`
+- `MAIN_FILE=heavencloud.ts`
 - `NODE_ARGS=--no-deprecation`
 - `DISCORD_TOKEN=your_bot_token`
 - `DISCORD_CLIENT_ID=your_application_id`
@@ -78,6 +78,8 @@ Deployment notes:
 
 - This project uses `better-sqlite3`, so SQLite support is installed through `npm install` and does not depend on Node's built-in `node:sqlite` module.
 - The repository includes an `allowScripts` entry in `package.json` for `better-sqlite3`, so npm can run its install/build step during deployment.
-- Havencloud's startup condition does not treat `index.js` as a JavaScript match in practice, so this branch uses `heavencloud.mts` as the explicit `ts-node --esm` entrypoint and hands off to the existing CommonJS bot runtime.
+- Havencloud's startup condition does not treat `index.js` as a JavaScript match in practice, so this branch uses `heavencloud.ts` as the explicit `ts-node --esm` entrypoint and hands off to the existing CommonJS bot runtime.
+- Avoid a leading `./` in `MAIN_FILE`; use `heavencloud.ts` exactly.
+- The branch includes a minimal `tsconfig.json` so Havencloud's global `ts-node` runner can load the TypeScript bootstrap without extra project setup.
 - The runtime entrypoint is already guarded in code against the noisy deprecation warning seen on some Node 22 hosts, and `NODE_ARGS=--no-deprecation` keeps the host logs cleaner.
 - If Havencloud provides a separate persistent disk path, point `DATABASE_PATH` there instead of the default container root.
