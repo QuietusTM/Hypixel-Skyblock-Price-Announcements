@@ -11,16 +11,24 @@ function parseNotifyTarget(value) {
   return value.replace(/[<@!>]/g, '').trim();
 }
 
-function validateFollowInput(item, price, notify, target) {
+function normalizeDirection(direction) {
+  const normalized = String(direction || 'under').toLowerCase().trim();
+  return normalized === 'over' ? 'over' : 'under';
+}
+
+function validateFollowInput(item, price, notify, target, direction) {
   if (!item || !item.trim()) {
     return { ok: false, error: 'Please provide a non-empty item name.' };
   }
+
+  const normalizedDirection = normalizeDirection(direction);
 
   if (item.trim().toLowerCase() === 'all') {
     return {
       ok: true,
       normalizedItem: 'all',
       price,
+      direction: normalizedDirection,
       notify: 'user',
       target: null,
       clearExisting: true,
@@ -43,6 +51,7 @@ function validateFollowInput(item, price, notify, target) {
       ok: true,
       normalizedItem: normalizeItem(item),
       price,
+      direction: normalizedDirection,
       notify: 'user',
       target: parsedTarget,
     };
@@ -52,6 +61,7 @@ function validateFollowInput(item, price, notify, target) {
     ok: true,
     normalizedItem: normalizeItem(item),
     price,
+    direction: normalizedDirection,
     notify: 'user',
     target: null,
   };
@@ -61,5 +71,6 @@ module.exports = {
   normalizeItem,
   formatItemName,
   parseNotifyTarget,
+  normalizeDirection,
   validateFollowInput,
 };

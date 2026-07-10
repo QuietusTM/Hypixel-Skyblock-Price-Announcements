@@ -4,13 +4,13 @@ This was entirely vibe coded in like a day and a half with some help of the limi
 
 # Discord Bazaar Alert Bot
 
-Discord bot that tracks Hypixel SkyBlock Bazaar prices and posts alerts to your configured server channel when tracked items drop below your threshold.
+Discord bot that tracks Hypixel SkyBlock Bazaar prices and posts alerts to your configured server channel when tracked items move under or over your target threshold.
 
 ## What The Bot Does
 
 - Polls the Hypixel Bazaar API on a schedule.
 - Lets each user follow one or more Bazaar items at custom price thresholds.
-- Sends a public alert message to the server alert channel when an item is at or below your tracked price.
+- Sends a public alert message to the server alert channel when an item is at or below your tracked price, or at or above your tracked price (based on rule direction).
 - Prevents repeated spam for the same unchanged low-price state until price conditions reset.
 - Stores follows and guild settings in SQLite.
 
@@ -61,16 +61,22 @@ npm start
 Adds or updates a follow alert.
 
 - item: item name to follow.
-- price: alert threshold; triggers when current tracked price is less than or equal to this number.
+- price: target threshold for alerts.
+- direction (optional):
+	- under: triggers when current tracked price is less than or equal to target (default).
+	- over: triggers when current tracked price is greater than or equal to target.
 - target (optional): user mention or user ID to ping in alerts. If omitted, the command user is pinged.
 
 Special behavior:
 
-- item=all clears your existing follows and replaces them with a single all-items follow rule at the chosen threshold.
+- item=all clears your existing follows and replaces them with a single all-items follow rule at the chosen threshold and direction.
 
 ### /followlist
 
-Shows your active follows for the current server, including threshold and ping target.
+Shows your active follows for the current server, split into two sections:
+
+- Falling under target price.
+- Rising over target price.
 
 ### /unfollow
 

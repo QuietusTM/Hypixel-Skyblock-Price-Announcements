@@ -23,6 +23,7 @@ class FollowStore {
         user_id TEXT NOT NULL,
         item TEXT NOT NULL,
         price REAL NOT NULL,
+        direction TEXT NOT NULL DEFAULT 'under',
         notify TEXT NOT NULL,
         target TEXT,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -54,24 +55,29 @@ class FollowStore {
 
     this.ensureColumn('follows', 'alert_sent', 'INTEGER NOT NULL DEFAULT 0');
     this.ensureColumn('follows', 'guild_id', "TEXT NOT NULL DEFAULT ''");
+    this.ensureColumn('follows', 'direction', "TEXT NOT NULL DEFAULT 'under'");
 
-    // Keep only the newest row for each guild/user/item triplet before enforcing uniqueness.
+    this.db.exec("UPDATE follows SET direction = 'under' WHERE direction IS NULL OR TRIM(direction) = ''");
+    this.db.exec("UPDATE follows SET direction = CASE LOWER(direction) WHEN 'over' THEN 'over' ELSE 'under' END");
+
+    // Keep only the newest row for each guild/user/item/direction before enforcing uniqueness.
     this.db.exec(`
       DELETE FROM follows
       WHERE rowid NOT IN (
         SELECT MAX(rowid)
         FROM follows
-        GROUP BY guild_id, user_id, item
+        GROUP BY guild_id, user_id, item, direction
       );
     `);
-    this.db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_follows_guild_user_item ON follows(guild_id, user_id, item)');
+    this.db.exec('DROP INDEX IF EXISTS idx_follows_guild_user_item');
+    this.db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_follows_guild_user_item_direction ON follows(guild_id, user_id, item, direction)');
   }
 
   prepareStatements() {
     this.upsertFollowStmt = this.db.prepare(`
-      INSERT INTO follows (guild_id, user_id, item, price, notify, target, alert_sent)
-      VALUES (?, ?, ?, ?, ?, ?, 0)
-      ON CONFLICT(guild_id, user_id, item) DO UPDATE SET
+      INSERT INTO follows (guild_id, user_id, item, price, direction, notify, target, alert_sent)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+      ON CONFLICT(guild_id, user_id, item, direction) DO UPDATE SET
         price = excluded.price,
         notify = excluded.notify,
         target = excluded.target,
@@ -111,17 +117,19 @@ class FollowStore {
 
   upsertFollow(userId, follow, guildId = follow?.guildId || '') {
     const resolvedGuildId = String(guildId || '').trim();
-    this.runWrite(this.upsertFollowStmt, resolvedGuildId, userId, follow.item, follow.price, follow.notify, follow.target || null);
+    const direction = String(follow.direction || 'under').toLowerCase() === 'over' ? 'over' : 'under';
+    this.runWrite(this.upsertFollowStmt, resolvedGuildId, userId, follow.item, follow.price, direction, follow.notify, follow.target || null);
   }
 
   getUserFollows(userId, guildId = '') {
     const resolvedGuildId = String(guildId || '').trim();
-    const rows = this.db.prepare('SELECT guild_id, user_id, item, price, notify, target, alert_sent FROM follows WHERE user_id = ? AND guild_id = ? ORDER BY item').all(userId, resolvedGuildId);
+    const rows = this.db.prepare('SELECT guild_id, user_id, item, price, direction, notify, target, alert_sent FROM follows WHERE user_id = ? AND guild_id = ? ORDER BY direction, item').all(userId, resolvedGuildId);
     return rows.map((row) => ({
       guildId: row.guild_id,
       userId: row.user_id,
       item: row.item,
       price: Number(row.price),
+      direction: row.direction,
       notify: row.notify,
       target: row.target,
       alertSent: Number(row.alert_sent) === 1,
@@ -131,28 +139,33 @@ class FollowStore {
   getAllFollows(guildId = null) {
     const resolvedGuildId = guildId === null || guildId === undefined ? null : String(guildId).trim();
     const rows = resolvedGuildId
-      ? this.db.prepare('SELECT guild_id, user_id, item, price, notify, target, alert_sent FROM follows WHERE guild_id = ? ORDER BY user_id, item').all(resolvedGuildId)
-      : this.db.prepare('SELECT guild_id, user_id, item, price, notify, target, alert_sent FROM follows ORDER BY guild_id, user_id, item').all();
+      ? this.db.prepare('SELECT guild_id, user_id, item, price, direction, notify, target, alert_sent FROM follows WHERE guild_id = ? ORDER BY user_id, direction, item').all(resolvedGuildId)
+      : this.db.prepare('SELECT guild_id, user_id, item, price, direction, notify, target, alert_sent FROM follows ORDER BY guild_id, user_id, direction, item').all();
     return rows.map((row) => ({
       guildId: row.guild_id,
       userId: row.user_id,
       item: row.item,
       price: Number(row.price),
+      direction: row.direction,
       notify: row.notify,
       target: row.target,
       alertSent: Number(row.alert_sent) === 1,
     }));
   }
 
-  removeFollow(userId, item, guildId = '') {
+  removeFollow(userId, item, guildId = '', direction = null) {
     const resolvedGuildId = String(guildId || '').trim();
-    const result = this.runWrite(this.db.prepare('DELETE FROM follows WHERE user_id = ? AND item = ? AND guild_id = ?'), userId, item, resolvedGuildId);
+    const normalizedDirection = direction ? (String(direction).toLowerCase() === 'over' ? 'over' : 'under') : null;
+    const result = normalizedDirection
+      ? this.runWrite(this.db.prepare('DELETE FROM follows WHERE user_id = ? AND item = ? AND guild_id = ? AND direction = ?'), userId, item, resolvedGuildId, normalizedDirection)
+      : this.runWrite(this.db.prepare('DELETE FROM follows WHERE user_id = ? AND item = ? AND guild_id = ?'), userId, item, resolvedGuildId);
     return result.changes > 0;
   }
 
-  setAlertSent(userId, item, alertSent, guildId = '') {
+  setAlertSent(userId, item, alertSent, guildId = '', direction = 'under') {
     const resolvedGuildId = String(guildId || '').trim();
-    const result = this.runWrite(this.db.prepare('UPDATE follows SET alert_sent = ? WHERE user_id = ? AND item = ? AND guild_id = ?'), alertSent ? 1 : 0, userId, item, resolvedGuildId);
+    const normalizedDirection = String(direction).toLowerCase() === 'over' ? 'over' : 'under';
+    const result = this.runWrite(this.db.prepare('UPDATE follows SET alert_sent = ? WHERE user_id = ? AND item = ? AND guild_id = ? AND direction = ?'), alertSent ? 1 : 0, userId, item, resolvedGuildId, normalizedDirection);
     return result.changes > 0;
   }
 

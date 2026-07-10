@@ -154,10 +154,21 @@ async function checkAndNotify() {
       const buyPrice = Number(product.quick_status?.buyPrice || 0);
       const sellPrice = Number(product.quick_status?.sellPrice || 0);
       const currentPrice = Math.min(buyPrice, sellPrice);
-      const alertState = evaluateAlertState({ currentPrice, threshold: follow.price, alertSent: follow.alertSent });
+      const alertState = evaluateAlertState({
+        currentPrice,
+        threshold: follow.price,
+        alertSent: follow.alertSent,
+        direction: follow.direction,
+      });
 
       if (alertState.shouldResetAlertSent) {
-        followStore.setAlertSent(follow.userId, follow.item, false, follow.guildId || resolveGuildId(client.guilds.cache.first()));
+        followStore.setAlertSent(
+          follow.userId,
+          follow.item,
+          false,
+          follow.guildId || resolveGuildId(client.guilds.cache.first()),
+          follow.direction,
+        );
         continue;
       }
 
@@ -183,9 +194,16 @@ async function checkAndNotify() {
           price: follow.price,
           currentPrice,
           pingTarget,
+          direction: follow.direction,
         });
         await channel.send(content);
-        followStore.setAlertSent(follow.userId, follow.item, true, follow.guildId || resolveGuildId(client.guilds.cache.first()));
+        followStore.setAlertSent(
+          follow.userId,
+          follow.item,
+          true,
+          follow.guildId || resolveGuildId(client.guilds.cache.first()),
+          follow.direction,
+        );
       }
     }
 
@@ -211,7 +229,7 @@ async function registerSlashCommands() {
   }
 
   const commands = [
-    new SlashCommandBuilder().setName('follow').setDescription('Follow an item on the Bazaar').addStringOption((option) => option.setName('item').setDescription('Item name from the Bazaar').setRequired(true)).addNumberOption((option) => option.setName('price').setDescription('Alert when price drops below this amount').setRequired(true)).addStringOption((option) => option.setName('target').setDescription('Optional user mention or ID to ping when this alert triggers').setRequired(false)).toJSON(),
+    new SlashCommandBuilder().setName('follow').setDescription('Follow an item on the Bazaar').addStringOption((option) => option.setName('item').setDescription('Item name from the Bazaar').setRequired(true)).addNumberOption((option) => option.setName('price').setDescription('Target price for this alert').setRequired(true)).addStringOption((option) => option.setName('direction').setDescription('Alert when price goes under or over the target').setRequired(false).addChoices({ name: 'Falling under target', value: 'under' }, { name: 'Rising over target', value: 'over' })).addStringOption((option) => option.setName('target').setDescription('Optional user mention or ID to ping when this alert triggers').setRequired(false)).toJSON(),
     new SlashCommandBuilder().setName('followlist').setDescription('List your Bazaar follow alerts').toJSON(),
     new SlashCommandBuilder().setName('searchitem').setDescription('Search the Bazaar catalog for an item').addStringOption((option) => option.setName('query').setDescription('Keyword to search for').setRequired(true)).toJSON(),
     new SlashCommandBuilder().setName('clearfollowlist').setDescription('Clear all of your Bazaar follows').toJSON(),
@@ -286,9 +304,10 @@ client.on('interactionCreate', async (interaction) => {
     if (commandName === 'follow') {
       const item = interaction.options.getString('item');
       const price = interaction.options.getNumber('price');
+      const direction = interaction.options.getString('direction') || 'under';
       const target = interaction.options.getString('target');
 
-      const validation = validateFollowInput(item, price, 'user', target);
+      const validation = validateFollowInput(item, price, 'user', target, direction);
       const guildId = resolveGuildId(interaction.guild || interaction.guildId);
       if (!validation.ok) {
         await replyEphemeral(interaction, validation.error);
@@ -298,7 +317,7 @@ client.on('interactionCreate', async (interaction) => {
       if (validation.clearExisting) {
         const existingFollows = followStore.getUserFollows(user.id, guildId);
         for (const follow of existingFollows) {
-          followStore.removeFollow(user.id, follow.item, guildId);
+          followStore.removeFollow(user.id, follow.item, guildId, follow.direction);
         }
       }
 
@@ -307,13 +326,16 @@ client.on('interactionCreate', async (interaction) => {
       followStore.upsertFollow(user.id, {
         item: validation.normalizedItem,
         price: validation.price,
+        direction: validation.direction,
         notify: 'user',
         target: notifyTarget,
       }, guildId);
 
+      const directionText = validation.direction === 'over' ? 'over' : 'under';
+
       const responseText = validation.normalizedItem === 'all'
-        ? `Now following all Bazaar items at ${validation.price}. Your previous follow list was cleared.`
-        : `Now following ${formatItemName(validation.normalizedItem)} at ${validation.price} and notifying you.`;
+        ? `Now following all Bazaar items for price going ${directionText} ${validation.price}. Your previous follow list was cleared.`
+        : `Now following ${formatItemName(validation.normalizedItem)} for price going ${directionText} ${validation.price} and notifying you.`;
 
       await replyEphemeral(interaction, responseText);
     }
@@ -325,8 +347,18 @@ client.on('interactionCreate', async (interaction) => {
         return;
       }
 
-      const lines = userFollows.map((entry) => `- ${formatItemName(entry.item)} | threshold: ${entry.price} | notify: ${entry.notify}${entry.target ? ` | ping: <@${entry.target}>` : ''}`);
-      await replyEphemeral(interaction, `Your followed items:\n${lines.join('\n')}`);
+      const formatFollowLine = (entry) => {
+        const comparator = entry.direction === 'over' ? '>=' : '<=';
+        return `- ${formatItemName(entry.item)} | target: ${comparator} ${entry.price} | notify: ${entry.notify}${entry.target ? ` | ping: <@${entry.target}>` : ''}`;
+      };
+
+      const underFollows = userFollows.filter((entry) => entry.direction !== 'over');
+      const overFollows = userFollows.filter((entry) => entry.direction === 'over');
+
+      const underLines = underFollows.length ? underFollows.map(formatFollowLine).join('\n') : '- None';
+      const overLines = overFollows.length ? overFollows.map(formatFollowLine).join('\n') : '- None';
+
+      await replyEphemeral(interaction, `Your followed items:\n\nFalling under target:\n${underLines}\n\nRising over target:\n${overLines}`);
     }
 
     if (commandName === 'searchitem') {
@@ -355,7 +387,7 @@ client.on('interactionCreate', async (interaction) => {
     if (commandName === 'clearfollowlist') {
       const existingFollows = followStore.getUserFollows(user.id, resolveGuildId(interaction.guild || interaction.guildId));
       for (const follow of existingFollows) {
-        followStore.removeFollow(user.id, follow.item, resolveGuildId(interaction.guild || interaction.guildId));
+        followStore.removeFollow(user.id, follow.item, resolveGuildId(interaction.guild || interaction.guildId), follow.direction);
       }
       await replyEphemeral(interaction, 'Your follow list has been cleared.');
     }

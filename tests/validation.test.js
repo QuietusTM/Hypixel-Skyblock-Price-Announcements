@@ -25,7 +25,14 @@ test('validateFollowInput defaults to a user notification when no notify mode is
   const result = validateFollowInput('diamond', 100000, undefined, undefined);
   assert.equal(result.ok, true);
   assert.equal(result.notify, 'user');
+  assert.equal(result.direction, 'under');
   assert.equal(result.target, null);
+});
+
+test('validateFollowInput accepts over-direction alerts', () => {
+  const result = validateFollowInput('diamond', 100000, 'user', undefined, 'over');
+  assert.equal(result.ok, true);
+  assert.equal(result.direction, 'over');
 });
 
 test('parseNotifyTarget strips mention formatting', () => {

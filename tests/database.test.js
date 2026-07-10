@@ -60,3 +60,28 @@ test('FollowStore scopes follow state by guild and updates alert state correctly
   store.close();
   resetDb();
 });
+
+test('FollowStore allows separate under and over rules for the same item', () => {
+  resetDb();
+  const store = new FollowStore(dbPath);
+
+  store.upsertFollow('user-1', { item: 'diamond', price: 100000, direction: 'under', notify: 'user', target: '123456' }, 'guild-a');
+  store.upsertFollow('user-1', { item: 'diamond', price: 250000, direction: 'over', notify: 'user', target: '123456' }, 'guild-a');
+
+  const follows = store.getUserFollows('user-1', 'guild-a');
+  assert.equal(follows.length, 2);
+  assert.equal(follows.filter((entry) => entry.direction === 'under').length, 1);
+  assert.equal(follows.filter((entry) => entry.direction === 'over').length, 1);
+
+  store.setAlertSent('user-1', 'diamond', true, 'guild-a', 'over');
+  const updated = store.getUserFollows('user-1', 'guild-a');
+  assert.equal(updated.find((entry) => entry.direction === 'over')?.alertSent, true);
+  assert.equal(updated.find((entry) => entry.direction === 'under')?.alertSent, false);
+
+  const removedOver = store.removeFollow('user-1', 'diamond', 'guild-a', 'over');
+  assert.equal(removedOver, true);
+  assert.equal(store.getUserFollows('user-1', 'guild-a').length, 1);
+
+  store.close();
+  resetDb();
+});
