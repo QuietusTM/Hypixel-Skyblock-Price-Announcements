@@ -125,3 +125,30 @@ Recommended bot permissions:
 
 Official HeavenCloud deployment is currently delayed while platform-wide Node.js issues are being resolved.
 For now, local or alternate-host runs are recommended.
+
+## Havencloud Deployment
+
+This repository can also run on Havencloud with a direct node entrypoint instead of `npm start`.
+
+Use these Havencloud environment values:
+
+- `MAIN_FILE=index.js`
+- `NODE_ARGS=--no-deprecation`
+- `DISCORD_TOKEN=your_bot_token`
+- `DISCORD_CLIENT_ID=your_application_id`
+- `DISCORD_GUILD_ID=`
+- `POLL_INTERVAL_MS=30000`
+- `CATALOG_REFRESH_INTERVAL_MS=86400000`
+- `DATABASE_PATH=/home/container/follows.sqlite`
+
+Use this startup command:
+
+```bash
+if [[ -d .git ]] && [[ 1 == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ "${MAIN_FILE}" == "*.js" ]]; then /usr/local/bin/node "/home/container/${MAIN_FILE}" ${NODE_ARGS}; else /usr/local/bin/ts-node --esm "/home/container/${MAIN_FILE}" ${NODE_ARGS}; fi
+```
+
+Notes:
+
+- Set `MAIN_FILE` to `index.js` so Havencloud uses the JavaScript entrypoint.
+- Keep `NODE_ARGS=--no-deprecation` if you want the cleanest runtime logs.
+- Make sure `/home/container/follows.sqlite` is on persistent storage if your Havencloud setup separates ephemeral and persistent paths.

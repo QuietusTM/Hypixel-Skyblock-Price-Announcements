@@ -55,17 +55,28 @@ Because the bot may be used by many users:
 
 ## 6. HeavenCloud Setup
 
-Current status: official HeavenCloud deployment is temporarily delayed because of platform-wide Node.js issues.
+This project is compatible with Havencloud's direct startup command flow.
 
-For your HeavenCloud app at `slu1.heavencloud.in:3045`, use these commands:
+Set these environment variables in Havencloud:
 
-- Build command: `npm install`
-- Start command: `npm start`
-- HeavenCloud startup variable: set `NODE_ARGS=--no-deprecation` (or `--no-warnings` if you want all process warnings hidden)
+- `MAIN_FILE=index.js`
+- `NODE_ARGS=--no-deprecation`
+- `DISCORD_TOKEN=your_bot_token`
+- `DISCORD_CLIENT_ID=your_application_id`
+- `DISCORD_GUILD_ID=`
+- `POLL_INTERVAL_MS=30000`
+- `CATALOG_REFRESH_INTERVAL_MS=86400000`
+- `DATABASE_PATH=/home/container/follows.sqlite`
 
-This project now uses the `better-sqlite3` package, so SQLite is installed as a dependency during `npm install` and does not rely on Node's built-in `node:sqlite` module.
-The repository includes an `allowScripts` entry in `package.json` for `better-sqlite3`, so npm can run its install/build script during deployment.
+Use this startup command:
 
-Deprecation warnings are also suppressed in the start command with `--no-deprecation` to reduce noisy logs.
-If your host ignores the start command and launches `node index.js` directly, set `NODE_OPTIONS=--no-deprecation` in the host environment variables.
-HeavenCloud's startup command uses `${NODE_ARGS}` after the main file, so setting `NODE_ARGS=--no-deprecation` is usually the most direct fix there.
+```bash
+if [[ -d .git ]] && [[ 1 == "1" ]]; then git pull; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then /usr/local/bin/npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then /usr/local/bin/npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then /usr/local/bin/npm install; fi; if [[ "${MAIN_FILE}" == "*.js" ]]; then /usr/local/bin/node "/home/container/${MAIN_FILE}" ${NODE_ARGS}; else /usr/local/bin/ts-node --esm "/home/container/${MAIN_FILE}" ${NODE_ARGS}; fi
+```
+
+Deployment notes:
+
+- This project uses `better-sqlite3`, so SQLite support is installed through `npm install` and does not depend on Node's built-in `node:sqlite` module.
+- The repository includes an `allowScripts` entry in `package.json` for `better-sqlite3`, so npm can run its install/build step during deployment.
+- The runtime entrypoint is already guarded in code against the noisy deprecation warning seen on some Node 22 hosts, and `NODE_ARGS=--no-deprecation` keeps the host logs cleaner.
+- If Havencloud provides a separate persistent disk path, point `DATABASE_PATH` there instead of the default container root.
